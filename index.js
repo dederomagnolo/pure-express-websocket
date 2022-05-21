@@ -24,27 +24,44 @@ const server = http.createServer(app);
 
 const wss = new Server({ server });
 
+// to renew client state
 const heartbeat = (client) => {
-	console.log("got pong from client")
+	console.log(`time#${moment().tz("America/Sao_Paulo").format("HH:mm")}$message#PONG FROM SERVER`)
   client.isAlive = true;
 }
 
 wss.on("connection", async (ws, req) => {
-	console.log("client received")
+	const headers = req.headers;
+	console.log(headers)
+	console.log("new client connected");
 	ws.isAlive = true;
   ws.on('pong', heartbeat);
+	ws.on('ping', () => console.log("ping"));
+	ws.on('close', () => {
+		ws.isAlive = false;
+		console.log("client disconnected");
+	})
+
+	ws.on('open', () => ws.send('hey you'));
+})
+
+wss.on("close", () => {
+	console.log("disconnected")
 })
 
 const sendPing = () => {
 	wss.clients.forEach((client) => {
-		if (client.isAlive === false) 
+		if (client.isAlive === false) {
+			console.log("found a dead connection")
 			return client.terminate();
-		client.isAlive = false;
-		client.ping();
+		}
+		client.ping(`time#${moment().tz("America/Sao_Paulo").format("HH:mm")}$message#PING FROM SERVER`);
 	});
 }
 
-const interval = setInterval(() => sendPing(), 30000);
+const interval = setInterval(
+	() => sendPing()
+, 30000);
 
 wss.on('close', function close() {
   clearInterval(interval);

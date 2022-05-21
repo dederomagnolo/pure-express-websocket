@@ -2,10 +2,10 @@
 #include <WiFiClient.h>
 #include <ArduinoWebsockets.h>
 
-#define LOCAL_MODE true
+#define LOCAL_MODE false
 #define LOCAL_IP "http://192.168.15.8"
 #define LOCAL_PORT "8080"
-#define SERVER_HOST "https://tobas"
+#define SERVER_HOST "https://pure-express-websocket.herokuapp.com/"
 #define CLIENT_ID "123"
 
 using namespace websockets;
@@ -29,7 +29,7 @@ void verifyConnection() {
     Serial.println("...connecting!");
     ESP.wdtFeed();
   }
-  Serial.println("BeThere connected");
+  Serial.println("Connected with wifi network");
 }
 
 void initWifi(String ssid = "noop", String password = "noop") {
@@ -55,23 +55,26 @@ void onEventsCallback(WebsocketsEvent event, String data) {
   if (event == WebsocketsEvent::ConnectionOpened) {
     Serial.println("Connnection Opened");
   } else if (event == WebsocketsEvent::ConnectionClosed) {
-    Serial.println("Connnection Closed");
+    handleWebsocketConnection();
   } else if (event == WebsocketsEvent::GotPing) {
-    Serial.println("Got a Ping!");
+    Serial.println(data);
   } else if (event == WebsocketsEvent::GotPong) {
     Serial.println("Got a Pong!");
   }
 }
 
 void handleWebsocketConnection () {
+  // Serial.println(wsclient.available());
   if (wsclient.available()) {
     wsclient.poll();
+    ESP.wdtFeed();
   } else {
-    Serial.println("reconnecting to websocket server...");
+    wsclient.addHeader("Connection", "Keep-alive");
     bool connected = wsclient.connect(getServerUri(LOCAL_MODE));
-    Serial.println(getServerUri(LOCAL_MODE));
     if (connected) {
-      Serial.println("websocket connected");
+    Serial.println("Connected with websocket server!");
+    } else {
+      Serial.println("...Reconnecting to websocket server");
     }
   }
 }
@@ -83,13 +86,7 @@ void setup() {
 
   initWifi();
 
-  bool connected = wsclient.connect(getServerUri(LOCAL_MODE));
-  
-  if (connected) {
-    Serial.println("Connected with websocket server!");
-  } else {
-    Serial.println("Not Connected!");
-  }
+  handleWebsocketConnection();
 
   // websocket events
   wsclient.onEvent(onEventsCallback);
