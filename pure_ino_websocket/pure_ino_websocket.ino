@@ -1,6 +1,7 @@
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ArduinoWebsockets.h>
+#include <Esp.h>
 
 #define LOCAL_MODE false
 #define LOCAL_IP "http://192.168.15.8"
@@ -41,7 +42,7 @@ void initWifi(String ssid = "noop", String password = "noop") {
 
 void recoverWiFiConnection() {
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("Connection lost!");
+    Serial.println("Network connection lost!");
     WiFi.disconnect();
     delay(200);
     WiFi.reconnect();
@@ -54,6 +55,7 @@ void recoverWiFiConnection() {
 void onEventsCallback(WebsocketsEvent event, String data) {
   if (event == WebsocketsEvent::ConnectionOpened) {
     Serial.println("Connnection Opened");
+    wsclient.ping("test");
   } else if (event == WebsocketsEvent::ConnectionClosed) {
     handleWebsocketConnection();
   } else if (event == WebsocketsEvent::GotPing) {
@@ -61,6 +63,8 @@ void onEventsCallback(WebsocketsEvent event, String data) {
   } else if (event == WebsocketsEvent::GotPong) {
     Serial.println("Got a Pong!");
   }
+
+  ESP.wdtFeed();
 }
 
 void handleWebsocketConnection () {
@@ -69,7 +73,6 @@ void handleWebsocketConnection () {
     wsclient.poll();
     ESP.wdtFeed();
   } else {
-    wsclient.addHeader("Connection", "Keep-alive");
     bool connected = wsclient.connect(getServerUri(LOCAL_MODE));
     if (connected) {
     Serial.println("Connected with websocket server!");
@@ -81,13 +84,14 @@ void handleWebsocketConnection () {
 
 
 void setup() {
+  // ESP.enableWDT();
   Serial.begin(115200);
   while (!Serial); // Waiting for Serial Monitor
 
   initWifi();
 
   handleWebsocketConnection();
-
+  wsclient.addHeader("Connection", "Keep-alive");
   // websocket events
   wsclient.onEvent(onEventsCallback);
 
@@ -97,11 +101,12 @@ void setup() {
     String messageFromRemote = message.data();
     Serial.print("Message from server: ");
     Serial.println(message.data());
+    ESP.wdtFeed();
   });
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
   recoverWiFiConnection();
   handleWebsocketConnection();
+  ESP.wdtFeed();
 }
