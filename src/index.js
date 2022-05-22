@@ -1,13 +1,13 @@
-const dotenv = require("dotenv");
-const express = require("express");
-const bodyParser = require("body-parser");
-const { Server } = require("ws");
-const WebSocket = require("ws");
-const moment = require("moment");
-const http = require("http");
-const cors = require("cors");
-const tz = require("moment-timezone");
-const _ = require("lodash");
+const dotenv = require('dotenv');
+const express = require('express');
+const bodyParser = require('body-parser');
+const { Server } = require('ws');
+const WebSocket = require('ws');
+const moment = require('moment');
+const http = require('http');
+const cors = require('cors');
+const tz = require('moment-timezone');
+const _ = require('lodash');
 
 dotenv.config();
 
@@ -16,8 +16,12 @@ app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cors());
 
-app.get("/", (req, res) => {
-  res.send("BeThere - Pure express websocket");
+const commandsRoute = require('./routes/Commands');
+
+app.use('/api/commands', commandsRoute);
+
+app.get('/', (req, res) => {
+  res.send('BeThere - Pure express websocket');
 });
 
 const server = http.createServer(app);
@@ -26,36 +30,36 @@ const wss = new Server({ server });
 
 // to renew client state
 const heartbeat = (client) => {
-	console.log(`time#${moment().tz("America/Sao_Paulo").format("HH:mm")}$message#PONG FROM SERVER`)
+	console.log(`time#${moment().tz('America/Sao_Paulo').format('HH:mm')}$message#PONG FROM SERVER`)
   client.isAlive = true;
 }
 
-wss.on("connection", async (ws, req) => {
+wss.on('connection', async (ws, req) => {
 	const headers = req.headers;
 	console.log(headers)
-	console.log("new client connected");
+	console.log('new client connected');
 	ws.isAlive = true;
   ws.on('pong', heartbeat);
-	ws.on('ping', () => console.log("ping"));
+	ws.on('ping', () => console.log('ping'));
 	ws.on('close', () => {
 		ws.isAlive = false;
-		console.log("client disconnected");
+		console.log('client disconnected');
 	})
 
 	ws.on('open', () => ws.send('hey you'));
 })
 
-wss.on("close", () => {
-	console.log("disconnected")
+wss.on('close', () => {
+	console.log('disconnected')
 })
 
 const sendPing = () => {
 	wss.clients.forEach((client) => {
 		if (client.isAlive === false) {
-			console.log("found a dead connection")
+			console.log('found a dead connection')
 			return client.terminate();
 		}
-		client.ping(`time#${moment().tz("America/Sao_Paulo").format("HH:mm")}$message#PING FROM SERVER`);
+		client.ping(`time#${moment().tz('America/Sao_Paulo').format('HH:mm')}$message#PING FROM SERVER`);
 	});
 }
 
