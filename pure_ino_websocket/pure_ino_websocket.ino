@@ -3,25 +3,32 @@
 #include <ArduinoWebsockets.h>
 #include <Esp.h>
 
-#define LOCAL_MODE false
-#define LOCAL_IP "http://192.168.15.8"
+#define LOCAL_MODE true
+#define LOCAL_IP "http://192.168.0.26"
 #define LOCAL_PORT "8080"
-#define SERVER_HOST "https://pure-express-websocket.herokuapp.com/"
+#define SERVER_HOST "ws://pure-express-websocket.herokuapp.com"
 #define CLIENT_ID "123"
 
 using namespace websockets;
 WiFiClient client;
 WebsocketsClient wsclient;
 
-char ssidDev[] = "Romagnolo 2.4G";
-char passwordDev[] = "melzinha123";
+//char ssidDev[] = "Romagnolo 2.4G";
+//char passwordDev[] = "melzinha123";
+char ssidDev[] = "Satan`s Connection";
+char passwordDev[] = "tininha157";
+
+unsigned long maxPingInterval = 40000; // 40 secs
+unsigned long pingTimer = 0;
+
+const char *serialKeyClient_1 = "A0CAA-DN6PV-6U2OD-NPY1Q";
 
 String getServerUri (bool devMode) {
-  if (devMode) {
-    return String(LOCAL_IP) + ":" + String(LOCAL_PORT);
-  } else {
-   return String(SERVER_HOST);
-  }
+  String host = devMode 
+    ? String(LOCAL_IP) + ":" + String(LOCAL_PORT)
+    : String(SERVER_HOST);
+  Serial.println(String(host) + '/' + String(serialKeyClient_1));
+  return String(host) + '/' + String(serialKeyClient_1);
 }
 
 void verifyConnection() {
@@ -47,8 +54,16 @@ void recoverWiFiConnection() {
     delay(200);
     WiFi.reconnect();
     delay(500);
-    yield();
+
     ESP.wdtFeed();
+  }
+}
+
+void onPing(String pingMessage) {
+  Serial.println(pingMessage);
+
+  if (pingTimer == 0) {
+   pingTimer = millis();
   }
 }
 
@@ -57,21 +72,24 @@ void onEventsCallback(WebsocketsEvent event, String data) {
     Serial.println("Connnection Opened");
     wsclient.ping("test");
   } else if (event == WebsocketsEvent::ConnectionClosed) {
-    handleWebsocketConnection();
+    Serial.println("Connection Closed");
   } else if (event == WebsocketsEvent::GotPing) {
-    Serial.println(data);
+    onPing(data);
   } else if (event == WebsocketsEvent::GotPong) {
     Serial.println("Got a Pong!");
   }
-
   ESP.wdtFeed();
 }
 
 void handleWebsocketConnection () {
-  // Serial.println(wsclient.available());
   if (wsclient.available()) {
     wsclient.poll();
-    ESP.wdtFeed();
+    // if client is available and there is no ping between max interval, force close.
+    if (millis() - pingTimer > maxPingInterval) {
+      Serial.println("No response from server, close connection");
+      wsclient.close();
+      pingTimer = 0;
+    }
   } else {
     bool connected = wsclient.connect(getServerUri(LOCAL_MODE));
     if (connected) {
@@ -80,18 +98,18 @@ void handleWebsocketConnection () {
       Serial.println("...Reconnecting to websocket server");
     }
   }
+  ESP.wdtFeed();
 }
 
 
 void setup() {
-  // ESP.enableWDT();
   Serial.begin(115200);
   while (!Serial); // Waiting for Serial Monitor
 
   initWifi();
 
   handleWebsocketConnection();
-  wsclient.addHeader("Connection", "Keep-alive");
+  // wsclient.addHeader("Connection", "Keep-alive");
   // websocket events
   wsclient.onEvent(onEventsCallback);
 

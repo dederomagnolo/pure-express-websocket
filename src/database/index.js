@@ -1,18 +1,20 @@
 const mongoose = require('mongoose');
 mongoose.Promise = global.Promise;
 
-console.log(process.env.HEROKU_ENV);
-
+const env = process.env.HEROKU_ENV === "production"
 // Database connection
 mongoose.connect(
-  process.env.HEROKU_ENV === "production"
+  env
     ? process.env.DB_CONNECTION_PROD
     : process.env.DB_CONNECTION_DEV,
-  { useUnifiedTopology: true, useNewUrlParser: true },
+  { 
+    useUnifiedTopology: true, 
+    useNewUrlParser: true 
+  },
   (err) => {
     return err 
       ? console.log(`cannot connect to db: ${err}`) 
-      : console.log("connected to db");
+      : console.log(`Connected to ${env ? env : 'dev'} db`);
   }
 );
 

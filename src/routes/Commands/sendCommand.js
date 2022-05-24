@@ -1,5 +1,8 @@
-function sendCommandToClient (router, wss) {
+function sendCommandToClient (router) {
   router.post("/send", async function (req, res) {
+
+    console.log("aq")
+    console.log(req.wss)
     const { userId, deviceId } = req.body;
   
     const user = await User.findOne({ _id: userId });

@@ -11,47 +11,36 @@ const _ = require('lodash');
 
 dotenv.config();
 
+// import models
+const User = require("./models/user");
+const Device = require("./models/device");
+
+const { generateToken, checkNewClientConnection} = require('./utils');
+const wssMiddleware = require('./middlewares/wss');
+const commandsRoute = require('./routes/Commands');
+
 const app = express();
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cors());
 
-const commandsRoute = require('./routes/Commands');
-
-app.use('/api/commands', commandsRoute);
-
-app.get('/', (req, res) => {
-  res.send('BeThere - Pure express websocket');
-});
-
 const server = http.createServer(app);
 
-const wss = new Server({ server });
+const wss = new Server({ 
+	verifyClient: async (info, done) => checkNewClientConnection(info, done),
+	server 
+});
+
+// clients middleware to pass clients to router context
+app.use(wssMiddleware(wss));
+app.use('/api/commands', commandsRoute);
+
 
 // to renew client state
 const heartbeat = (client) => {
 	console.log(`time#${moment().tz('America/Sao_Paulo').format('HH:mm')}$message#PONG FROM SERVER`)
   client.isAlive = true;
 }
-
-wss.on('connection', async (ws, req) => {
-	const headers = req.headers;
-	console.log(headers)
-	console.log('new client connected');
-	ws.isAlive = true;
-  ws.on('pong', heartbeat);
-	ws.on('ping', () => console.log('ping'));
-	ws.on('close', () => {
-		ws.isAlive = false;
-		console.log('client disconnected');
-	})
-
-	ws.on('open', () => ws.send('hey you'));
-})
-
-wss.on('close', () => {
-	console.log('disconnected')
-})
 
 const sendPing = () => {
 	wss.clients.forEach((client) => {
@@ -65,11 +54,27 @@ const sendPing = () => {
 
 const interval = setInterval(
 	() => sendPing()
-, 30000);
+, 20000);
+
+// websocket connection handler
+wss.on('connection', async (ws, req) => {
+	console.log(`Connected clients: ${wss.clients.size}`);
+	// const headers = req.headers;
+	// console.log(headers)
+	ws.isAlive = true;
+	sendPing();
+  ws.on('pong', heartbeat);
+	ws.on('close', () => {
+		ws.isAlive = false;
+		console.log(`Connected clients: ${wss.clients.size}`)
+		console.log('client disconnected');
+	})
+})
 
 wss.on('close', function close() {
   clearInterval(interval);
 });
+
 
 const port = 8080;
 
@@ -77,4 +82,6 @@ server.listen(process.env.PORT || port, () => {
   console.log(`Server running in the port ${port}`);
 });
 
-
+app.get('/', (req, res) => {
+  res.send('BeThere - Pure express websocket');
+});
